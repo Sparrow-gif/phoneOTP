@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Authentication</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .auth-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="auth-container bg-white">
+            <h2 class="text-center mb-4">Phone Authentication</h2>
+            
+            <!-- Phone number input form -->
+            <div id="phone-auth-container">
+                <div class="mb-3">
+                    <label for="phone-number" class="form-label">Enter Phone Number</label>
+                    <div class="input-group">
+                        <span class="input-group-text">+91</span>
+                        <input type="tel" class="form-control" id="phone-number" placeholder="9876543210">
+                    </div>
+                </div>
+                <button id="send-otp-btn" class="btn btn-primary w-100">Send OTP</button>
+            </div>
+            
+            <!-- OTP verification form (hidden initially) -->
+            <div id="otp-verify-container" class="hidden">
+                <div class="mb-3">
+                    <label for="verification-code" class="form-label">Enter OTP</label>
+                    <input type="text" class="form-control" id="verification-code" placeholder="6-digit code">
+                </div>
+                <button id="verify-otp-btn" class="btn btn-success w-100 mb-2">Verify OTP</button>
+                <button id="cancel-verify-btn" class="btn btn-outline-secondary w-100">Cancel</button>
+            </div>
+            
+            <!-- Status messages -->
+            <div id="status-message" class="mt-3 text-center"></div>
+        </div>
+    </div>
+
+    <!-- Firebase and Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInWithPhoneNumber, 
+            RecaptchaVerifier 
+        } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY0W_J1Zp9Yzdznzd6TYXiNQfClvOnbng",
+            authDomain: "phone-otp-c2076.firebaseapp.com",
+            projectId: "phone-otp-c2076",
+            storageBucket: "phone-otp-c2076.firebasestorage.app",
+            messagingSenderId: "230485576907",
+            appId: "1:230485576907:web:86c3d8c097b61b937b5f4e",
+            measurementId: "G-MSMC8MYNRJ"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // DOM elements
+        const phoneNumberInput = document.getElementById('phone-number');
+        const sendOtpBtn = document.getElementById('send-otp-btn');
+        const verifyOtpBtn = document.getElementById('verify-otp-btn');
+        const cancelVerifyBtn = document.getElementById('cancel-verify-btn');
+        const verificationCodeInput = document.getElementById('verification-code');
+        const phoneAuthContainer = document.getElementById('phone-auth-container');
+        const otpVerifyContainer = document.getElementById('otp-verify-container');
+        const statusMessage = document.getElementById('status-message');
+
+        // Global variable to store confirmation result
+        let confirmationResult;
+
+        // Initialize reCAPTCHA
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'send-otp-btn', {
+            'size': 'invisible',
+            'callback': () => {
+                // reCAPTCHA solved, allow send OTP
+            }
+        });
+
+        // Send OTP button click handler
+        sendOtpBtn.addEventListener('click', async () => {
+            const phoneNumber = "+91" + phoneNumberInput.value.trim();
+            
+            if (!phoneNumberInput.value.trim()) {
+                showStatus("Please enter a phone number", "danger");
+                return;
+            }
+
+            try {
+                showStatus("Sending OTP...", "info");
+                
+                confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+                
+                // Show OTP verification form
+                phoneAuthContainer.classList.add('hidden');
+                otpVerifyContainer.classList.remove('hidden');
+                showStatus("OTP sent successfully!", "success");
+            } catch (error) {
+                console.error("Error sending OTP:", error);
+                showStatus("Error sending OTP: " + error.message, "danger");
+            }
+        });
+
+        // Verify OTP button click handler
+        verifyOtpBtn.addEventListener('click', async () => {
+            const verificationCode = verificationCodeInput.value.trim();
+            
+            if (!verificationCode) {
+                showStatus("Please enter the OTP", "danger");
+                return;
+            }
+
+            try {
+                showStatus("Verifying OTP...", "info");
+                const result = await confirmationResult.confirm(verificationCode);
+                
+                // User signed in successfully
+                const user = result.user;
+                showStatus("Phone number verified successfully!", "success");
+                
+                // You can redirect or do something with the authenticated user here
+                console.log("User signed in:", user);
+                
+            } catch (error) {
+                console.error("Error verifying OTP:", error);
+                showStatus("Error verifying OTP: " + error.message, "danger");
+            }
+        });
+
+        // Cancel verification button click handler
+        cancelVerifyBtn.addEventListener('click', () => {
+            otpVerifyContainer.classList.add('hidden');
+            phoneAuthContainer.classList.remove('hidden');
+            verificationCodeInput.value = "";
+            showStatus("", "");
+        });
+
+        // Helper function to show status messages
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `mt-3 text-center text-${type}`;
+        }
+    </script>
+</body>
+</html>
