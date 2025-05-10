@@ -42,6 +42,13 @@
             min-width: 100vw;
         }
     /***********************************************/    
+        .user-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 14px;
+            color: var(--text-color);
+        }
         .tabs {
             display: flex;
             margin-bottom: 20px;
@@ -233,6 +240,9 @@
         </div>
     </div>
 
+    <!-- User Info Display -->
+    <div id="userInfo" class="user-info"></div>
+
     <div class="tabs">
         <button class="tab-btn active" data-tab="quiz"> Quiz </button>
         <button class="tab-btn" data-tab="rewards"> My Points </button>
@@ -341,6 +351,7 @@
         let coins = 0;
         let quizCompleted = false;
         let currentUser = null;
+        let answerSubmitted = false;
 
         // DOM elements
         const startBtn = document.getElementById('startBtn');
@@ -363,6 +374,7 @@
         const tabBtns = document.querySelectorAll('.tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
         const loader = document.getElementById('loader');
+        const userInfoElement = document.getElementById('userInfo');
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
@@ -432,6 +444,7 @@
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     currentUser = user;
+                    userInfoElement.textContent = `Logged in as: ${user.email}`;
                     await loadAdCountFromFirebase();
                     loader.style.display = 'none';
                 } else {
@@ -621,6 +634,7 @@
             currentQuestionIndex = 0;
             score = 0;
             quizCompleted = false;
+            answerSubmitted = false;
             showQuestion();
         }
 
@@ -631,6 +645,7 @@
                 return;
             }
 
+            answerSubmitted = false;
             const question = quizQuestions[currentQuestionIndex];
             questionElement.textContent = question.question;
             optionsElement.innerHTML = '';
@@ -644,12 +659,15 @@
             });
 
             updateProgress();
-            startTimer();
+            // Timer will start only after answer is submitted
+            timerElement.classList.add('hidden');
         }
 
         // Select an answer
         function selectAnswer(selectedOption) {
-            clearInterval(timer);
+            if (answerSubmitted) return;
+            answerSubmitted = true;
+            
             const question = quizQuestions[currentQuestionIndex];
             const options = optionsElement.querySelectorAll('.option-btn');
 
@@ -671,28 +689,33 @@
                 resultElement.style.color = '#F44336';
             }
 
-            setTimeout(() => {
-                currentQuestionIndex++;
-                resultElement.textContent = '';
-                showQuestion();
-            }, 1500);
+            // Start timer after answer is submitted
+            startTimer();
         }
 
         // Start timer for current question
         function startTimer() {
-            timeLeft = 10;
-            timerElement.textContent = `Time left: ${timeLeft}s`;
+            timeLeft = 3; // 3 seconds delay before next question
+            timerElement.textContent = `Next question in: ${timeLeft}s`;
             timerElement.classList.remove('hidden');
 
             timer = setInterval(() => {
                 timeLeft--;
-                timerElement.textContent = `Time left: ${timeLeft}s`;
+                timerElement.textContent = `Next question in: ${timeLeft}s`;
 
                 if (timeLeft <= 0) {
                     clearInterval(timer);
-                    selectAnswer('');
+                    moveToNextQuestion();
                 }
             }, 1000);
+        }
+
+        // Move to next question after timer ends
+        function moveToNextQuestion() {
+            currentQuestionIndex++;
+            resultElement.textContent = '';
+            timerElement.classList.add('hidden');
+            showQuestion();
         }
 
         // Update progress indicator
@@ -706,12 +729,16 @@
             quizContainer.style.display = 'none';
             resultContainer.style.display = 'flex';
             
-            const earnedCoins = Math.floor(score * 2.5);
-            coins += earnedCoins;
+            // Award 5 points for completing the quiz (regardless of answers)
+            const baseCoins = 5;
+            const bonusCoins = Math.floor(score * 2.5);
+            const totalCoins = baseCoins + bonusCoins;
+            
+            coins += totalCoins;
             saveCoins();
             
             finalScoreElement.textContent = `Your Score: ${score}/${quizQuestions.length}`;
-            coinsEarnedElement.textContent = `Points Earned: ${earnedCoins}`;
+            coinsEarnedElement.textContent = `Points Earned: ${totalCoins} (${baseCoins} completion + ${bonusCoins} bonus)`;
             quizCompleted = true;
         }
 
