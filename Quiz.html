@@ -729,16 +729,14 @@
             quizContainer.style.display = 'none';
             resultContainer.style.display = 'flex';
             
-            // Award 5 points for completing the quiz (regardless of answers)
-            const baseCoins = 5;
-            const bonusCoins = Math.floor(score * 2.5);
-            const totalCoins = baseCoins + bonusCoins;
+            // Always award exactly 5 coins
+            const totalCoins = 5;
             
             coins += totalCoins;
             saveCoins();
             
             finalScoreElement.textContent = `Your Score: ${score}/${quizQuestions.length}`;
-            coinsEarnedElement.textContent = `Points Earned: ${totalCoins} (${baseCoins} completion + ${bonusCoins} bonus)`;
+            coinsEarnedElement.textContent = `Points Earned: ${totalCoins}`;
             quizCompleted = true;
         }
 
