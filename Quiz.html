@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto:wght@300;400;700&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <script src="https://web3forms.com/client/script.js" async defer></script>
-    <!-- Add Firebase SDK -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
@@ -15,22 +15,18 @@
         :root {
             --background-color: #ffffff;
             --text-color: #333;
-
             --quiz-bg: #FFBE98;
-
             --opt-button-color: #ffffff;
-         }
+        }
         @media (prefers-color-scheme: dark) {
             :root {
-              --background-color: #3E3F5B;
-              --text-color: #fff;
-
-              --quiz-bg: #6A6B9C;
-
-              --opt-button-color: #6A6B9C;  
+                --background-color: #3E3F5B;
+                --text-color: #fff;
+                --quiz-bg: #6A6B9C;
+                --opt-button-color: #6A6B9C;  
             }
         } 
-    /***********************************************/    
+        
         * {
             margin: 0;
             padding: 0;
@@ -49,7 +45,35 @@
             min-height: 100vh;
             min-width: 100vw;
         }
-    /***********************************************/    
+        
+        /* Auth UI */
+        .auth-container {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .auth-btn {
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+        }
+        .login-btn {
+            background-color: #4285F4;
+        }
+        .logout-btn {
+            background-color: #EA4335;
+        }
+        .user-info {
+            margin: 20px 0;
+            font-size: 16px;
+        }
+        
+        /* Quiz Styles */
         .tabs {
             display: flex;
             margin-bottom: 20px;
@@ -74,7 +98,7 @@
         .tab-content.active {
             display: block;
         }
-    /********************************************/    
+        
         .quiz-container {
             margin: 30px auto;
             display: none;
@@ -107,7 +131,7 @@
         .option-btn:disabled {
             cursor: not-allowed;
         }
-    /*******************************************/    
+        
         .result {
             margin-top: 20px;
             font-weight: bold;
@@ -171,7 +195,8 @@
             width: 100px;
             height: 100px;
         }
-    /**************************************/    
+        
+        /* Rewards Section */
         .reward-container {
             text-align: center;
             padding: 20px;
@@ -219,43 +244,16 @@
             max-width: 520px;
             display: block;
         }
-        /* Auth UI */
-        .auth-container {
-            max-width: 400px;
-            margin: 20px auto;
-            padding: 20px;
-            border-radius: 10px;
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-        .auth-btn {
-            padding: 10px 20px;
-            margin: 10px;
-            border: none;
-            border-radius: 5px;
-            color: white;
-            cursor: pointer;
-        }
-        .login-btn {
-            background-color: #4285F4;
-        }
-        .logout-btn {
-            background-color: #EA4335;
-        }
-        .user-info {
-            margin: 20px 0;
-            font-size: 16px;
-        }
-
     </style>
 </head>
 <body oncontextmenu="return false">
     <!-- Firebase Auth UI -->
-    <div id="auth-container" class="auth-container hidden">
+    <div id="auth-container" class="auth-container">
         <div id="user-info" class="user-info hidden">
             Logged in as: <span id="user-email"></span>
             <button id="logout-btn" class="auth-btn logout-btn">Logout</button>
         </div>
-        <div id="login-section">
+        <div id="login-section" class="hidden">
             <button id="login-btn" class="auth-btn login-btn">Login with Google</button>
         </div>
     </div>
@@ -353,17 +351,7 @@
             { question: "What is 6 + 9?", options: ["15", "14", "17", "16"], correctAnswer: "15" },
             { question: "What is 14 - 6?", options: ["9", "8", "7", "10"], correctAnswer: "8" },
             { question: "What is 8 + 7?", options: ["14", "16", "15", "17"], correctAnswer: "15" },
-            { question: "What is 20 - 12?", options: ["9", "10", "7", "8"], correctAnswer: "8" },
-            { question: "What is 5 + 8?", options: ["14", "13", "12", "15"], correctAnswer: "13" },
-            { question: "What is 16 - 8?", options: ["9", "7", "8", "10"], correctAnswer: "8" },
-            { question: "What is 4 + 9?", options: ["15", "14", "12", "13"], correctAnswer: "13" },
-            { question: "What is 18 - 10?", options: ["8", "7", "9", "10"], correctAnswer: "8" },
-            { question: "What is 7 + 8?", options: ["16", "15", "14", "17"], correctAnswer: "15" },
-            { question: "What is 13 - 6?", options: ["8", "7", "6", "9"], correctAnswer: "7" },
-            { question: "What is 6 + 7?", options: ["15", "14", "13", "12"], correctAnswer: "13" },
-            { question: "What is 21 - 13?", options: ["7", "9", "8", "10"], correctAnswer: "8" },
-            { question: "What is 9 + 6?", options: ["17", "16", "15", "14"], correctAnswer: "15" },
-            { question: "What is 22 - 14?", options: ["7", "9", "10", "8"], correctAnswer: "8" }
+            { question: "What is 20 - 12?", options: ["9", "10", "7", "8"], correctAnswer: "8" }
         ];
 
         // Game state
@@ -404,9 +392,6 @@
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
-            // Show auth UI
-            authContainer.classList.remove('hidden');
-            
             // Set up auth state listener
             auth.onAuthStateChanged(user => {
                 currentUser = user;
@@ -414,10 +399,12 @@
                     // User is signed in
                     userInfo.classList.remove('hidden');
                     userEmail.textContent = user.email;
+                    document.getElementById('login-section').classList.add('hidden');
                     loadUserData();
                 } else {
                     // User is signed out
                     userInfo.classList.add('hidden');
+                    document.getElementById('login-section').classList.remove('hidden');
                     Swal.fire({
                         title: 'Login Required',
                         text: 'You need to login to play the quiz',
@@ -460,18 +447,16 @@
                 redeemForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     const amount = parseInt(redeemAmountSelect.value);
-                    const requiredCoins = amount * 120;  // 20 = 200 coin
+                    const requiredCoins = amount * 120;
                     
                     if (coins < requiredCoins) {
                         Swal.fire('Error', `You need ${requiredCoins} coins to submition`, 'error');
                         return;
                     }
                     
-                    // Set hidden form values
                     document.getElementById('formCoins').value = requiredCoins;
                     document.getElementById('formAmount').value = amount;
                     
-                    // Submit form
                     const formData = new FormData(redeemForm);
                     fetch(redeemForm.action, {
                         method: 'POST',
@@ -480,7 +465,6 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            // Only deduct coins after successful submission
                             coins -= requiredCoins;
                             saveUserData();
                             updateWalletBalance();
@@ -506,23 +490,35 @@
         async function loadUserData() {
             if (!currentUser) return;
 
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
             const userDoc = await db.collection('users').doc(currentUser.uid).get();
+            
             if (userDoc.exists) {
                 const data = userDoc.data();
                 coins = data.coins || 0;
                 
                 // Check if it's a new day for ad count
-                const today = new Date().toDateString();
                 if (data.lastAdDate === today) {
                     adsWatchedToday = data.adsWatchedToday || 0;
                 } else {
                     adsWatchedToday = 0;
+                    // Update the last ad date
+                    await db.collection('users').doc(currentUser.uid).update({
+                        lastAdDate: today,
+                        adsWatchedToday: 0
+                    });
                 }
             } else {
                 // Initialize new user
                 coins = 0;
                 adsWatchedToday = 0;
-                await saveUserData();
+                await db.collection('users').doc(currentUser.uid).set({
+                    email: currentUser.email,
+                    coins: 0,
+                    adsWatchedToday: 0,
+                    lastAdDate: today,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
             }
             
             updateAdCounterUI();
@@ -533,14 +529,13 @@
         async function saveUserData() {
             if (!currentUser) return;
             
-            const today = new Date().toDateString();
-            await db.collection('users').doc(currentUser.uid).set({
-                email: currentUser.email,
+            const today = new Date().toISOString().split('T')[0];
+            await db.collection('users').doc(currentUser.uid).update({
                 coins: coins,
                 adsWatchedToday: adsWatchedToday,
                 lastAdDate: today,
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            });
         }
 
         // Update ad counter UI
@@ -572,7 +567,6 @@
             const currentQuestion = quizQuestions[currentQuestionIndex];
             questionElement.textContent = currentQuestion.question;
             
-            // Update progress indicator
             progressElement.textContent = `Question ${currentQuestionIndex + 1} of ${quizQuestions.length}`;
             
             optionsElement.innerHTML = '';
@@ -593,7 +587,6 @@
             const currentQuestion = quizQuestions[currentQuestionIndex];
             const options = optionsElement.querySelectorAll('.option-btn');
             
-            // Disable all options
             options.forEach(option => {
                 option.disabled = true;
                 if (option.textContent === currentQuestion.correctAnswer) {
@@ -603,7 +596,6 @@
                 }
             });
             
-            // Show result
             if (selectedOption === currentQuestion.correctAnswer) {
                 score++;
                 resultElement.textContent = 'Correct!';
@@ -613,7 +605,6 @@
                 resultElement.style.color = '#F44336';
             }
             
-            // Start timer after answer is selected
             startTimer();
         }
 
@@ -652,14 +643,13 @@
             if (!currentUser) return;
             
             quizCompleted = true;
-            // Award 5 coins for completing the quiz
             coins += 5;
             await saveUserData();
             
             quizContainer.style.display = 'none';
             resultContainer.style.display = 'block';
             finalScoreElement.textContent = `Your score: ${score}/${quizQuestions.length}`;
-            coinsEarnedElement.textContent = `Awesom You receive 5 points!`;
+            coinsEarnedElement.textContent = `Awesome! You received 5 points!`;
         }
 
         // Reset quiz
@@ -681,7 +671,7 @@
             if (adsWatchedToday >= 10) {
                 Swal.fire({
                     title: 'Daily Limit Reached',
-                    text: 'You've earned all extra points for today. Come back tomorrow!',
+                    text: 'You\'ve earned all extra points for today. Come back tomorrow!',
                     icon: 'info'
                 });
                 return;
@@ -760,8 +750,5 @@
             });
         }
     </script>
-
-    <script src="version-check.js"> </script>
-    
 </body>
 </html>
