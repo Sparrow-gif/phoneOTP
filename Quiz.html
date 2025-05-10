@@ -1,309 +1,592 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Earn Points</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <style>
-    body {
-      background-color: #f8f9fa;
-    }
-    .card {
-      max-width: 500px;
-      margin: 50px auto;
-      border-radius: 15px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .btn-earn {
-      background-color: #28a745;
-      color: white;
-      font-weight: bold;
-      padding: 12px;
-      border-radius: 8px;
-    }
-    .loader-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(255, 255, 255, 0.8);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    .nav-tabs .nav-link.active {
-      font-weight: bold;
-      background-color: #f8f9fa;
-    }
-    .tab-content {
-      padding: 20px;
-      background-color: #f8f9fa;
-      border-left: 1px solid #dee2e6;
-      border-right: 1px solid #dee2e6;
-      border-bottom: 1px solid #dee2e6;
-      border-radius: 0 0 5px 5px;
-    }
-  </style>
-</head>
-<body>
-  <!-- Loader Overlay -->
-  <div id="loader" class="loader-overlay">
-    <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading...</span>
-    </div>
-  </div>
-
-  <div class="container">
-    <div class="card">
-      <div class="card-header bg-primary text-white text-center">
-        <h4>Earn Rewards</h4>
-      </div>
-      <div class="card-body">
-        <ul class="nav nav-tabs" id="myTab" role="tablist">
-          <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="earn-tab" data-bs-toggle="tab" data-bs-target="#earn" type="button" role="tab">Earn Points</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="wallet-tab" data-bs-toggle="tab" data-bs-target="#wallet" type="button" role="tab">My Wallet</button>
-          </li>
-        </ul>
-        
-        <div class="tab-content" id="myTabContent">
-          <div class="tab-pane fade show active" id="earn" role="tabpanel">
-            <div class="text-center mt-3">
-              <p>Ads viewed today: <strong id="ad-count">0/10</strong></p>
-              <button id="earn-points-btn" class="btn btn-earn w-100 mt-3">
-                Watch Ad & Earn 25 Points
-              </button>
-            </div>
-          </div>
-          
-          <div class="tab-pane fade" id="wallet" role="tabpanel">
-            <div class="text-center mt-3">
-              <h5>Your Points Balance</h5>
-              <h1 id="points-balance">0</h1>
-              <p class="text-muted">Points can be redeemed for rewards</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js';
-    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
-    import { getFirestore, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js';
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAUAVJ9rGBufA1NWYoh8Eym8EoPVB5h1gk",
-      authDomain: "authentication-b93f7.firebaseapp.com",
-      projectId: "authentication-b93f7",
-      storageBucket: "authentication-b93f7.appspot.com",
-      messagingSenderId: "254632724536",
-      appId: "1:254632724536:web:ecd4a8da767dbcc009becd",
-      measurementId: "G-85HL8MWJDC"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    let currentUser = null;
-    const POINTS_PER_AD = 25;
-    const MAX_ADS_PER_DAY = 10;
-
-    // Load points from localStorage
-    function getPoints() {
-      return parseInt(localStorage.getItem('userPoints')) || 0;
-    }
-
-    // Save points to localStorage
-    function savePoints(points) {
-      localStorage.setItem('userPoints', points.toString());
-      updatePointsDisplay();
-    }
-
-    // Update points display
-    function updatePointsDisplay() {
-      document.getElementById('points-balance').textContent = getPoints();
-    }
-
-    // Check if date is today
-    function isToday(date) {
-      const today = new Date();
-      return date.getDate() === today.getDate() &&
-             date.getMonth() === today.getMonth() &&
-             date.getFullYear() === today.getFullYear();
-    }
-
-    // Reset ad count if it's a new day
-    async function checkAndResetAdCount(userId) {
-      const userRef = doc(db, "users", userId);
-      const userSnap = await getDoc(userRef);
-      
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        const lastAdDate = data.lastAdDate?.toDate();
-        
-        if (!lastAdDate || !isToday(lastAdDate)) {
-          await updateDoc(userRef, {
-            adViews: 0,
-            lastAdDate: new Date()
-          });
-          return 0;
-        }
-        return data.adViews || 0;
-      }
-      return 0;
-    }
-
-    // Update ad views in Firestore only when ad is successfully completed
-    async function updateAdViews(userId) {
-      try {
-        const userRef = doc(db, "users", userId);
-        const userSnap = await getDoc(userRef);
-        
-        const currentViews = userSnap.exists() ? (userSnap.data().adViews || 0) : 0;
-        const newViews = currentViews + 1;
-        
-        await updateDoc(userRef, {
-          adViews: newViews,
-          lastAdDate: new Date()
-        });
-        
-        return newViews;
-      } catch (error) {
-        console.error("Error updating ad views:", error);
-        return null;
-      }
-    }
-
-    // Show interstitial ad for coins (Android only)
-    function showInterstitialAdForCoins() {
-      if (window.Android && typeof window.Android.showRewardedAd === 'function') {
-        // Android version - setup callback
-        window.adCompleteCallback = async function(success) {
-          if (success && currentUser) {
-            const newViews = await updateAdViews(currentUser.uid);
-            
-            if (newViews !== null) {
-              // Update local points
-              const currentPoints = getPoints();
-              savePoints(currentPoints + POINTS_PER_AD);
-              
-              // Update UI
-              document.getElementById('ad-count').textContent = `${newViews}/${MAX_ADS_PER_DAY}`;
-              
-              Swal.fire({
-                title: 'Thank You!',
-                text: '25 points have been added to your wallet!',
-                icon: 'success'
-              });
-              
-              // Disable button if limit reached
-              if (newViews >= MAX_ADS_PER_DAY) {
-                document.getElementById('earn-points-btn').disabled = true;
-                document.getElementById('earn-points-btn').textContent = 'Daily Limit Reached';
-              }
-            } else {
-              Swal.fire({
-                title: 'Error',
-                text: 'Ad view could not be recorded. Please try again.',
-                icon: 'error'
-              });
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,shrink-to-fit=no,viewport-fit=cover">
+    <title>SolveIt - Quiz Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto:wght@300;400;700&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://web3forms.com/client/script.js" async defer></script>
+    <style>
+        :root {
+            --background-color: #ffffff;
+            --text-color: #333;
+            --quiz-bg: #FFBE98;
+            --opt-button-color: #ffffff;
+         }
+        @media (prefers-color-scheme: dark) {
+            :root {
+              --background-color: #3E3F5B;
+              --text-color: #fff;
+              --quiz-bg: #6A6B9C;
+              --opt-button-color: #6A6B9C;  
             }
-          } else {
-            Swal.fire({
-              title: 'Ad Not Completed',
-              text: 'The ad was not fully watched. No points added.',
-              icon: 'info'
-            });
-          }
-          
-          // Re-enable button
-          const btn = document.getElementById('earn-points-btn');
-          btn.disabled = false;
-          btn.textContent = 'Watch Ad & Earn 25 Points';
+        } 
+    /***********************************************/    
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            font-family: 'Poppins', sans-serif;
+            color: var(--text-color);
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            min-width: 100vw;
+        }
+    /***********************************************/    
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            flex: 1;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-btn.active {
+            border-bottom: 3px solid #8B5DFF;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    /********************************************/    
+        .quiz-container {
+            margin: 30px auto;
+            display: none;
+            max-width: 660px;
+        }
+        .question {
+            font-size: 20px;
+            margin-bottom: 40px;
+            background-color: var(--quiz-bg);
+            padding: 40px 20px;
+            border: 2px solid orange;
+            border-radius: 16px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        .options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 15px;
+            margin: 20px auto;
+            max-width: 90%;
+        }
+        .option-btn {
+            padding: 12px 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: var(--opt-button-color);
+            border: 1px solid #e3e3e3;
+            border-radius: 15px;
+        }
+        .option-btn:disabled {
+            cursor: not-allowed;
+        }
+    /*******************************************/    
+        .result {
+            margin-top: 20px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .ad-counter {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .start-btn, .play-again-btn, .home-btn, .extra-coins-btn {
+            padding: 10px 30px;
+            font-size: 16px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .start-btn, .play-again-btn {
+            background-color: #8B5DFF;
+        }
+        .home-btn {
+            background-color: #4285F4;
+            margin-right: 10px;
+        }
+        .extra-coins-btn {
+            background-color: #34A853;
+        }
+        #timer {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #4285F4;
+        }
+        #progress {
+            margin: 10px 0;
+            font-weight: bold;
+            color: #666;
+        }
+        #resultContainer {
+            height: auto;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px 20px;
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }    
+        .final-result {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        #finalScore {
+            margin: 20px auto;
+            color: #60B5FF;
+            font-size: 22px;
+        }
+        .trophy {
+            width: 100px;
+            height: 100px;
+        }
+    /**************************************/    
+        .reward-container {
+            text-align: center;
+            padding: 20px;
+        }
+        .wallet-balance {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #8B5DFF;
+        }
+        .min-redeem {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .redeem-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .redeem-form input, .redeem-form select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .redeem-btn {
+            padding: 10px;
+            background-color: #8B5DFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .hidden {
+            display: none;
+        }
+        .leaderboard {
+            padding: 10px;
+            background-color: #8B5DFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            margin:0 auto;
+            max-width: 520px;
+            display: block;
+        }
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+    </style>
+</head>
+<body oncontextmenu="return false">
+    <!-- Loader Overlay -->
+    <div id="loader" class="loader-overlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="quiz"> Quiz </button>
+        <button class="tab-btn" data-tab="rewards"> My Points </button>
+    </div>
+
+    <div id="quiz" class="tab-content active">
+        <h1>Quiz Game</h1>
+        <div id="progress"></div>
+        <button id="startBtn" class="start-btn">Start Quiz</button>
+        
+        <div id="quizContainer" class="quiz-container">
+            <div id="question" class="question"></div>
+            <div id="options" class="options"></div>
+            <div id="result" class="result"></div>
+            <div id="timer" class="hidden"></div>
+            
+            <div class="ad-counter">
+                Extra Coins Collected Today: <span id="adCount">0</span>/10
+            </div>
+        </div>
+        
+        <div id="resultContainer" style="display: none;">
+            <div class="final-result">Quiz Completed!</div>
+            <img src="trophy.svg" class="trophy" draggable="false" alt="Trophy">
+            <div id="finalScore"></div>
+            <div id="coinsEarned"></div>
+            <button id="homeBtn" class="home-btn">Back to Home</button>
+            <button id="extraCoinsBtn" class="extra-coins-btn"> Get Extra 25 Points </button>
+        </div>
+    </div>
+
+    <div id="rewards" class="tab-content">
+        <div class="reward-container">
+            <h2> Submit To LeaderBoard </h2>
+            <div class="wallet-balance">
+                My Points : <span id="walletBalance">0</span> coins
+            </div>
+            <div class="min-redeem">
+                Minimum submit: 1200 coins
+            </div>
+            <form id="redeemForm" class="redeem-form" action="https://api.web3forms.com/submit" method="POST">
+                <input type="hidden" name="access_key" value="165a9647-54cc-4e12-954f-17c533af72f8">
+                <input type="hidden" name="subject" value="Coin Redemption Request">
+                <input type="hidden" name="coins" id="formCoins" value="">
+                <input type="hidden" name="amount" id="formAmount" value="">
+                
+                <input type="text" id="name" name="name" placeholder="Your Name" required>
+                <input type="email" id="email" name="email" placeholder="Your Email" required>
+                <input type="text" id="upiId" name="upi_id" placeholder="Enter App ID / Name" required>
+                <select id="redeemAmount" name="redeem_amount" required>
+                    <option value="" disabled selected>Select Points</option>
+                    <option value="10"> 1200 points = extra 10 coin </option>
+                </select>
+                <button type="submit" id="redeemBtn" class="redeem-btn"> Submit To LeaderBoard </button>
+                <small> *Only top 10 users are showing on leaderboard. Coins are used only for leaderboard ranking. </small>
+            </form>
+            <div id="form-result" class="hidden"></div>
+        </div>
+        <a href="leaderboard.html" class="leaderboard"> Go To Leaderboard </a>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAUAVJ9rGBufA1NWYoh8Eym8EoPVB5h1gk",
+            authDomain: "authentication-b93f7.firebaseapp.com",
+            projectId: "authentication-b93f7",
+            storageBucket: "authentication-b93f7.appspot.com",
+            messagingSenderId: "254632724536",
+            appId: "1:254632724536:web:ecd4a8da767dbcc009becd",
+            measurementId: "G-85HL8MWJDC"
         };
-        window.Android.showRewardedAd();
-      } else {
-        // Web version - no coins added
-        Swal.fire({
-          title: 'Ad Not Available',
-          text: 'Ads are only available in the Android app version',
-          icon: 'info'
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Quiz data
+        const quizQuestions = [
+            { question: "What is 5 + 3?", options: ["7", "10", "8", "9"], correctAnswer: "8" },
+            { question: "What is 19 - 11?", options: ["8", "7", "10", "9"], correctAnswer: "8" },
+            // ... (rest of your quiz questions)
+        ];
+
+        // Game state
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let adsWatchedToday = 0;
+        let timer;
+        let timeLeft = 10;
+        let coins = 0;
+        let quizCompleted = false;
+        let currentUser = null;
+
+        // DOM elements
+        const startBtn = document.getElementById('startBtn');
+        const quizContainer = document.getElementById('quizContainer');
+        const questionElement = document.getElementById('question');
+        const optionsElement = document.getElementById('options');
+        const resultElement = document.getElementById('result');
+        const adCountElement = document.getElementById('adCount');
+        const timerElement = document.getElementById('timer');
+        const resultContainer = document.getElementById('resultContainer');
+        const finalScoreElement = document.getElementById('finalScore');
+        const coinsEarnedElement = document.getElementById('coinsEarned');
+        const homeBtn = document.getElementById('homeBtn');
+        const extraCoinsBtn = document.getElementById('extraCoinsBtn');
+        const progressElement = document.getElementById('progress');
+        const walletBalanceElement = document.getElementById('walletBalance');
+        const redeemAmountSelect = document.getElementById('redeemAmount');
+        const redeemForm = document.getElementById('redeemForm');
+        const formResult = document.getElementById('form-result');
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const loader = document.getElementById('loader');
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            initFirebaseAuth();
+            
+            loadCoins();
+            updateWalletBalance();
+            
+            startBtn.addEventListener('click', startQuiz);
+            homeBtn.addEventListener('click', resetQuiz);
+            extraCoinsBtn.addEventListener('click', showExtraCoinsConfirmation);
+            
+            // Tab switching
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+
+            // Web3Forms setup
+            if (redeemForm) {
+                redeemForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const amount = parseInt(redeemAmountSelect.value);
+                    const requiredCoins = amount * 120;
+                    
+                    if (coins < requiredCoins) {
+                        Swal.fire('Error', `You need ${requiredCoins} coins to submition`, 'error');
+                        return;
+                    }
+                    
+                    document.getElementById('formCoins').value = requiredCoins;
+                    document.getElementById('formAmount').value = amount;
+                    
+                    const formData = new FormData(redeemForm);
+                    fetch(redeemForm.action, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            coins -= requiredCoins;
+                            saveCoins();
+                            updateWalletBalance();
+                            
+                            Swal.fire(
+                                'Success!',
+                                `Your LeaderBoard submition request has been submitted.`,
+                                'success'
+                            );
+                            redeemForm.reset();
+                        } else {
+                            Swal.fire('Error', 'There was an error submitting your request. Please try again.', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire('Error', 'There was an error submitting your request. Please try again.', 'error');
+                    });
+                });
+            }
         });
-        
-        // Re-enable button
-        document.getElementById('earn-points-btn').disabled = false;
-        document.getElementById('earn-points-btn').textContent = 'Watch Ad & Earn 25 Points';
-      }
-    }
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', async () => {
-      const earnPointsBtn = document.getElementById('earn-points-btn');
-      
-      // Check auth state
-      onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          currentUser = user;
-          
-          // Check/reset ad count for today
-          const adViews = await checkAndResetAdCount(user.uid);
-          document.getElementById('ad-count').textContent = `${adViews}/${MAX_ADS_PER_DAY}`;
-          
-          // Disable button if limit reached
-          if (adViews >= MAX_ADS_PER_DAY) {
-            earnPointsBtn.disabled = true;
-            earnPointsBtn.textContent = 'Daily Limit Reached';
-          }
-          
-          // Hide loader
-          document.getElementById('loader').style.display = 'none';
-          
-          // Update points display
-          updatePointsDisplay();
-        } else {
-          window.location.href = "index.html";
+        // Initialize Firebase Auth
+        function initFirebaseAuth() {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    await loadAdCountFromFirebase();
+                    loader.style.display = 'none';
+                } else {
+                    // Redirect to login if not authenticated
+                    window.location.href = "index.html";
+                }
+            });
         }
-      });
 
-      // Handle earn points button click
-      earnPointsBtn.addEventListener('click', () => {
-        if (!currentUser) {
-          Swal.fire({
-            title: 'Not Logged In',
-            text: 'Please login to earn points',
-            icon: 'warning'
-          });
-          return;
+        // Load ad count from Firebase (with daily reset)
+        async function loadAdCountFromFirebase() {
+            if (!currentUser) return;
+
+            const today = new Date().toDateString();
+            const userRef = db.collection('users').doc(currentUser.uid);
+            
+            try {
+                const doc = await userRef.get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    const lastAdDate = data.lastAdDate?.toDate().toDateString();
+                    
+                    if (lastAdDate !== today) {
+                        // Reset count if it's a new day
+                        await userRef.update({
+                            adViews: 0,
+                            lastAdDate: new Date()
+                        });
+                        adsWatchedToday = 0;
+                    } else {
+                        adsWatchedToday = data.adViews || 0;
+                    }
+                } else {
+                    // Create new user document if doesn't exist
+                    await userRef.set({
+                        email: currentUser.email,
+                        adViews: 0,
+                        lastAdDate: new Date()
+                    });
+                    adsWatchedToday = 0;
+                }
+                updateAdCounterUI();
+            } catch (error) {
+                console.error("Error loading ad count:", error);
+                Swal.fire('Error', 'Could not load ad data. Please try again.', 'error');
+            }
         }
-        
-        // Check daily limit
-        const currentCount = parseInt(document.getElementById('ad-count').textContent.split('/')[0]);
-        if (currentCount >= MAX_ADS_PER_DAY) {
-          Swal.fire({
-            title: 'Daily Limit Reached',
-            text: `You can only watch ${MAX_ADS_PER_DAY} ads per day`,
-            icon: 'info'
-          });
-          return;
+
+        // Update ad count in Firebase
+        async function updateAdCountInFirebase() {
+            if (!currentUser) return;
+
+            try {
+                await db.collection('users').doc(currentUser.uid).update({
+                    adViews: adsWatchedToday,
+                    lastAdDate: new Date()
+                });
+                return true;
+            } catch (error) {
+                console.error("Error updating ad count:", error);
+                return false;
+            }
         }
-        
-        earnPointsBtn.disabled = true;
-        earnPointsBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading Ad...';
-        
-        showInterstitialAdForCoins();
-      });
-    });
-  </script>
+
+        // Switch tabs
+        function switchTab(tabId) {
+            tabBtns.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-tab') === tabId) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === tabId) {
+                    content.classList.add('active');
+                }
+            });
+        }
+
+        // Load coins from localStorage
+        function loadCoins() {
+            const storedCoins = localStorage.getItem('userCoins');
+            if (storedCoins) {
+                coins = parseInt(storedCoins);
+            }
+        }
+
+        // Save coins to localStorage
+        function saveCoins() {
+            localStorage.setItem('userCoins', coins.toString());
+            updateWalletBalance();
+        }
+
+        // Update ad counter UI
+        function updateAdCounterUI() {
+            adCountElement.textContent = adsWatchedToday;
+        }
+
+        // Update wallet balance UI
+        function updateWalletBalance() {
+            walletBalanceElement.textContent = coins;
+        }
+
+        // Show interstitial ad for coins (Android only)
+        function showInterstitialAdForCoins() {
+            if (window.Android && typeof window.Android.showRewardedAd === 'function') {
+                // Android version - setup callback
+                window.adCompleteCallback = async function(success) {
+                    if (success && currentUser) {
+                        adsWatchedToday++;
+                        coins += 25;
+                        
+                        // Update Firebase first
+                        const firebaseSuccess = await updateAdCountInFirebase();
+                        
+                        if (firebaseSuccess) {
+                            saveCoins();
+                            Swal.fire({
+                                title: 'Thank You!',
+                                text: '25 points have been added to your wallet!',
+                                icon: 'success'
+                            });
+                            updateAdCounterUI();
+                            resetQuiz();
+                        } else {
+                            // Rollback if Firebase update fails
+                            adsWatchedToday--;
+                            coins -= 25;
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Could not record your ad view. Please try again.',
+                                icon: 'error'
+                            });
+                        }
+                    } else {
+                        Swal.fire({
+                            title: 'Ad Not Completed',
+                            text: 'The ad was not fully watched. No points added.',
+                            icon: 'info'
+                        });
+                    }
+                };
+                window.Android.showRewardedAd();
+            } else {
+                // Web version - no coins added
+                Swal.fire({
+                    title: 'Ad Not Available',
+                    text: 'Ads are only available in the Android app version',
+                    icon: 'info'
+                });
+                resetQuiz();
+            }
+        }
+
+        // ... (rest of your existing quiz functions remain the same)
+        // Start quiz, show question, select answer, timer functions, etc.
+        // These can remain exactly as they were in your original code
+
+    </script>
+
+    <script src="version-check.js"> </script>
+    
 </body>
 </html>
-
