@@ -95,9 +95,13 @@
             background-color: var(--opt-button-color);
             border: 1px solid #e3e3e3;
             border-radius: 15px;
+            transition: transform 0.2s, background-color 0.2s;
         }
         .option-btn:disabled {
             cursor: not-allowed;
+        }
+        .option-btn:hover:not(:disabled) {
+            transform: scale(1.05);
         }
         
         .result {
@@ -118,6 +122,12 @@
             border-radius: 5px;
             cursor: pointer;
             margin-top: 20px;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        .start-btn:hover, .play-again-btn:hover, 
+        .home-btn:hover, .extra-coins-btn:hover {
+            transform: scale(1.05);
+            opacity: 0.9;
         }
         .start-btn, .play-again-btn {
             background-color: #8B5DFF;
@@ -149,6 +159,7 @@
             justify-content: center;
             align-items: center;
             gap: 20px;
+            background-color: var(--quiz-bg);
         }    
         .final-result {
             font-size: 24px;
@@ -197,6 +208,10 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .redeem-btn:hover {
+            transform: scale(1.02);
         }
         .hidden {
             display: none;
@@ -227,14 +242,35 @@
             z-index: 1000;
             display: none;
         }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #8B5DFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Android WebView Fixes */
+        @media screen and (max-width: 600px) {
+            .question {
+                padding: 20px 10px;
+                font-size: 18px;
+            }
+            .options {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body oncontextmenu="return false">
     <!-- Loading Spinner -->
     <div class="spinner-overlay" id="spinner">
-        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
+        <div class="spinner"></div>
     </div>
 
     <div class="tabs">
@@ -363,7 +399,7 @@
         }
 
         // Initialize the app
-        document.addEventListener('DOMContentLoaded', function() {
+        function initializeApp() {
             showSpinner();
             
             // Set up auth state listener
@@ -371,7 +407,7 @@
                 currentUser = user;
                 if (!user) {
                     // Redirect to login page if not logged in
-                    window.location.href = 'index.html';
+                    window.location.href = 'login.html';
                     return;
                 }
                 
@@ -379,41 +415,8 @@
                     // Load user data
                     await loadUserData();
                     
-                    // Initialize UI
-                    startBtn.addEventListener('click', startQuiz);
-                    homeBtn.addEventListener('click', resetQuiz);
-                    extraCoinsBtn.addEventListener('click', showExtraCoinsConfirmation);
-                    
-                    // Tab switching
-                    tabBtns.forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const tabId = this.getAttribute('data-tab');
-                            switchTab(tabId);
-                        });
-                    });
-
-                    // Form submission
-                    redeemForm.addEventListener('submit', async function(e) {
-                        e.preventDefault();
-                        const amount = parseInt(redeemAmountSelect.value);
-                        const requiredCoins = amount * 120;
-                        
-                        if (coins < requiredCoins) {
-                            Swal.fire('Error', `You need ${requiredCoins} coins to submit`, 'error');
-                            return;
-                        }
-                        
-                        // Simulate form submission
-                        showSpinner();
-                        setTimeout(() => {
-                            coins -= requiredCoins;
-                            saveUserData();
-                            updateWalletBalance();
-                            hideSpinner();
-                            Swal.fire('Success', 'Your submission has been recorded!', 'success');
-                            redeemForm.reset();
-                        }, 1500);
-                    });
+                    // Initialize event listeners
+                    setupEventListeners();
                     
                     hideSpinner();
                 } catch (error) {
@@ -422,7 +425,71 @@
                     Swal.fire('Error', 'Failed to initialize the app. Please try again.', 'error');
                 }
             });
-        });
+        }
+
+        // Set up all event listeners
+        function setupEventListeners() {
+            // Start quiz button
+            startBtn.addEventListener('click', startQuiz);
+            
+            // Home button
+            homeBtn.addEventListener('click', resetQuiz);
+            
+            // Extra coins button
+            extraCoinsBtn.addEventListener('click', showExtraCoinsConfirmation);
+            
+            // Tab switching
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+
+            // Form submission
+            redeemForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const amount = parseInt(redeemAmountSelect.value);
+                const requiredCoins = amount * 120;
+                
+                if (coins < requiredCoins) {
+                    Swal.fire('Error', `You need ${requiredCoins} coins to submit`, 'error');
+                    return;
+                }
+                
+                showSpinner();
+                try {
+                    // Simulate form submission with callback
+                    await submitWithCallback(() => {
+                        coins -= requiredCoins;
+                        saveUserData();
+                        updateWalletBalance();
+                        return Promise.resolve();
+                    }, "Submitting to leaderboard...");
+                    
+                    Swal.fire('Success', 'Your submission has been recorded!', 'success');
+                    redeemForm.reset();
+                } catch (error) {
+                    Swal.fire('Error', 'Submission failed. Please try again.', 'error');
+                } finally {
+                    hideSpinner();
+                }
+            });
+        }
+
+        // Generic callback function for async operations
+        async function submitWithCallback(operation, loadingMessage) {
+            return new Promise((resolve, reject) => {
+                Swal.fire({
+                    title: loadingMessage,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                        operation().then(resolve).catch(reject);
+                    }
+                });
+            });
+        }
 
         // Load user data from Firestore
         async function loadUserData() {
@@ -488,7 +555,7 @@
         // Start quiz
         function startQuiz() {
             if (!currentUser) {
-                window.location.href = 'index.html';
+                window.location.href = 'login.html';
                 return;
             }
             
@@ -602,7 +669,7 @@
         // Show confirmation for extra coins
         function showExtraCoinsConfirmation() {
             if (!currentUser) {
-                window.location.href = 'index.html';
+                window.location.href = 'login.html';
                 return;
             }
             
@@ -633,30 +700,30 @@
             });
         }
 
-        // Show interstitial ad for coins
+        // Show interstitial ad for coins with callback
         async function showInterstitialAdForCoins() {
-            showSpinner();
-            
             try {
-                // Simulate ad loading (2 seconds)
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await submitWithCallback(async () => {
+                    // Simulate ad loading (2 seconds)
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Update ad count and coins
+                    adsWatchedToday++;
+                    coins += 25;
+                    await saveUserData();
+                    
+                    updateAdCounterUI();
+                    updateWalletBalance();
+                    resetQuiz();
+                    return Promise.resolve();
+                }, "Loading ad...");
                 
-                // Update ad count and coins
-                adsWatchedToday++;
-                coins += 25;
-                await saveUserData();
-                
-                hideSpinner();
                 Swal.fire({
                     title: 'Thank You!',
                     text: '25 points have been added to your wallet!',
                     icon: 'success'
                 });
-                updateAdCounterUI();
-                updateWalletBalance();
-                resetQuiz();
             } catch (error) {
-                hideSpinner();
                 Swal.fire({
                     title: 'Error',
                     text: 'Failed to load ad. Please try again later.',
@@ -681,6 +748,9 @@
                 }
             });
         }
+
+        // Start the app
+        document.addEventListener('DOMContentLoaded', initializeApp);
     </script>
 </body>
 </html>
