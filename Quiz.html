@@ -3,46 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Watch Ads</title>
+  <title>Earn Points</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
-    .ad-container {
+    body {
       background-color: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 5px;
-      padding: 20px;
-      margin-top: 20px;
-      text-align: center;
-      min-height: 300px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+    }
+    .card {
+      max-width: 400px;
+      margin: 50px auto;
+      border-radius: 15px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .btn-earn {
+      background-color: #28a745;
+      color: white;
+      font-weight: bold;
+      padding: 12px;
+      border-radius: 8px;
     }
   </style>
 </head>
-<body class="bg-light">
-  <div class="container mt-5">
-    <div class="card mx-auto" style="max-width: 600px;">
-      <div class="card-header bg-primary text-white">
-        Watch Ads
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="card-header bg-primary text-white text-center">
+        <h4>Earn Points</h4>
       </div>
-      <div class="card-body">
-        <div id="user-info">
-          <p>Logged in as: <strong id="user-email"></strong></p>
-          <p>Ads viewed today: <strong id="ad-count">0</strong></p>
-        </div>
+      <div class="card-body text-center">
+        <p class="mb-4">Watch ads to earn 25 points in the Android app</p>
         
-        <div class="ad-container" id="ad-placeholder">
-          <h4>Advertisement Will Appear Here</h4>
-        </div>
-        
-        <button id="watch-ad-btn" class="btn btn-success mt-3 w-100">
-          Watch Ad (Earn Points)
-        </button>
-        
-        <button id="logout-btn" class="btn btn-danger mt-3 w-100">
-          Logout
+        <button id="earn-points-btn" class="btn btn-earn w-100">
+          Watch Ad & Earn 25 Points
         </button>
       </div>
     </div>
@@ -50,8 +43,8 @@
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js';
-    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
-    import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js';
+    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
+    import { getFirestore, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyAUAVJ9rGBufA1NWYoh8Eym8EoPVB5h1gk",
@@ -67,160 +60,103 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // DOM Elements
-    const userEmail = document.getElementById('user-email');
-    const adCount = document.getElementById('ad-count');
-    const watchAdBtn = document.getElementById('watch-ad-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const adPlaceholder = document.getElementById('ad-placeholder');
-
-    // Current user data
     let currentUser = null;
-    let userData = null;
 
-    // Check if date is today
-    function isToday(date) {
-      const today = new Date();
-      return date.getDate() === today.getDate() &&
-             date.getMonth() === today.getMonth() &&
-             date.getFullYear() === today.getFullYear();
-    }
-
-    // Reset ad count if it's a new day
-    async function checkAndResetAdCount(userId) {
-      const userRef = doc(db, "users", userId);
-      const userSnap = await getDoc(userRef);
-      
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        const lastAdDate = data.lastAdDate?.toDate();
-        
-        if (!lastAdDate || !isToday(lastAdDate)) {
-          await updateDoc(userRef, {
-            adViews: 0,
-            lastAdDate: new Date()
-          });
-        }
-      }
-    }
-
-    // Function to show ad in Android app
-    function showAdInApp() {
-      return new Promise((resolve, reject) => {
-        if (window.Android && typeof window.Android.showInterstitialAd === 'function') {
-          // Call the Android method to show Interstitial Ad
-          window.Android.showInterstitialAd();
-          
-          // Android should call this function when ad is completed
-          window.onAdCompleted = function() {
-            resolve();
-          };
-          
-          window.onAdFailed = function() {
-            reject(new Error("Ad failed to load"));
-          };
-        } else {
-          // Fallback for web
-          adPlaceholder.innerHTML = '<h4>Advertisement Playing...</h4><p>This is a sample ad. In real implementation, actual ads will show here.</p>';
-          setTimeout(resolve, 5000); // Simulate 5 sec ad
-        }
-      });
-    }
-
-    // Show ad function
-    async function showAd() {
+    // Update ad views in Firestore only when ad is successfully completed
+    async function updateAdViews(userId) {
       try {
-        // Show loading
-        watchAdBtn.disabled = true;
-        watchAdBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading Ad...';
+        const userRef = doc(db, "users", userId);
+        const userSnap = await getDoc(userRef);
         
-        // Show the ad
-        await showAdInApp();
+        const currentViews = userSnap.exists() ? (userSnap.data().adViews || 0) : 0;
         
-        // Update ad count in Firestore
-        const userRef = doc(db, "users", currentUser.uid);
         await updateDoc(userRef, {
-          adViews: (userData.adViews || 0) + 1,
+          adViews: currentViews + 1,
           lastAdDate: new Date()
         });
         
-        // Update UI
-        userData.adViews = (userData.adViews || 0) + 1;
-        adCount.textContent = `${userData.adViews}/10`;
-        
-        // Show success message
-        Swal.fire("Success", "You've earned points for watching the ad!", "success");
-        
-        // Reset ad container
-        adPlaceholder.innerHTML = '<h4>Advertisement Will Appear Here</h4>';
-        
+        return true;
       } catch (error) {
-        Swal.fire("Error", error.message, "error");
-      } finally {
-        watchAdBtn.disabled = false;
-        watchAdBtn.textContent = 'Watch Ad (Earn Points)';
+        console.error("Error updating ad views:", error);
+        return false;
       }
     }
 
-    // Auth state listener
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        currentUser = user;
-        userEmail.textContent = user.email;
-        
-        // Check or initialize user data
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-          userData = userSnap.data();
-        } else {
-          // Create new user document
-          await setDoc(userRef, {
-            email: user.email,
-            adViews: 0,
-            lastAdDate: new Date()
-          });
-          userData = { adViews: 0 };
-        }
-        
-        // Check if ad count needs reset (new day)
-        await checkAndResetAdCount(user.uid);
-        
-        // Update UI with current ad count
-        adCount.textContent = `${userData.adViews || 0}/10`;
-        
-        // Disable button if daily limit reached
-        if (userData.adViews >= 10) {
-          watchAdBtn.disabled = true;
-          watchAdBtn.textContent = 'Daily Limit Reached';
-        }
-        
+    // Show interstitial ad for coins (Android only)
+    function showInterstitialAdForCoins() {
+      if (window.Android && typeof window.Android.showRewardedAd === 'function') {
+        // Android version - setup callback
+        window.adCompleteCallback = async function(success) {
+          if (success && currentUser) {
+            const updated = await updateAdViews(currentUser.uid);
+            
+            if (updated) {
+              Swal.fire({
+                title: 'Thank You!',
+                text: '25 points have been added to your wallet!',
+                icon: 'success'
+              });
+            } else {
+              Swal.fire({
+                title: 'Error',
+                text: 'Points could not be added. Please try again.',
+                icon: 'error'
+              });
+            }
+          } else {
+            Swal.fire({
+              title: 'Ad Not Completed',
+              text: 'The ad was not fully watched. No points added.',
+              icon: 'info'
+            });
+          }
+        };
+        window.Android.showRewardedAd();
       } else {
-        // Redirect to login if not authenticated
-        window.location.href = "index.html";
+        // Web version - no coins added
+        Swal.fire({
+          title: 'Ad Not Available',
+          text: 'Ads are only available in the Android app version',
+          icon: 'info'
+        });
       }
-    });
+    }
 
-    // Event Listeners
-    watchAdBtn.addEventListener('click', async () => {
-      if (!currentUser) return;
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      const earnPointsBtn = document.getElementById('earn-points-btn');
       
-      if (userData.adViews >= 10) {
-        Swal.fire("Limit Reached", "You've already watched 10 ads today. Come back tomorrow!", "info");
-        return;
-      }
-      
-      await showAd();
-    });
-    
-    logoutBtn.addEventListener('click', async () => {
-      try {
-        await signOut(auth);
-        window.location.href = "index.html";
-      } catch (error) {
-        Swal.fire("Error", error.message, "error");
-      }
+      // Check auth state
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          currentUser = user;
+        } else {
+          window.location.href = "index.html";
+        }
+      });
+
+      // Handle earn points button click
+      earnPointsBtn.addEventListener('click', () => {
+        if (!currentUser) {
+          Swal.fire({
+            title: 'Not Logged In',
+            text: 'Please login to earn points',
+            icon: 'warning'
+          });
+          return;
+        }
+        
+        earnPointsBtn.disabled = true;
+        earnPointsBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
+        
+        showInterstitialAdForCoins();
+        
+        // Re-enable button after 5 seconds if no response
+        setTimeout(() => {
+          earnPointsBtn.disabled = false;
+          earnPointsBtn.textContent = 'Watch Ad & Earn 25 Points';
+        }, 5000);
+      });
     });
   </script>
 </body>
