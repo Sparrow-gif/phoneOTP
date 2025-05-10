@@ -11,7 +11,7 @@
       background-color: #f8f9fa;
     }
     .card {
-      max-width: 400px;
+      max-width: 500px;
       margin: 50px auto;
       border-radius: 15px;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -23,24 +23,78 @@
       padding: 12px;
       border-radius: 8px;
     }
+    .loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .nav-tabs .nav-link.active {
+      font-weight: bold;
+      background-color: #f8f9fa;
+    }
+    .tab-content {
+      padding: 20px;
+      background-color: #f8f9fa;
+      border-left: 1px solid #dee2e6;
+      border-right: 1px solid #dee2e6;
+      border-bottom: 1px solid #dee2e6;
+      border-radius: 0 0 5px 5px;
+    }
   </style>
 </head>
 <body>
+  <!-- Loader Overlay -->
+  <div id="loader" class="loader-overlay">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
   <div class="container">
     <div class="card">
       <div class="card-header bg-primary text-white text-center">
-        <h4>Earn Points</h4>
+        <h4>Earn Rewards</h4>
       </div>
-      <div class="card-body text-center">
-        <p class="mb-4">Watch ads to earn 25 points in the Android app</p>
+      <div class="card-body">
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="earn-tab" data-bs-toggle="tab" data-bs-target="#earn" type="button" role="tab">Earn Points</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="wallet-tab" data-bs-toggle="tab" data-bs-target="#wallet" type="button" role="tab">My Wallet</button>
+          </li>
+        </ul>
         
-        <button id="earn-points-btn" class="btn btn-earn w-100">
-          Watch Ad & Earn 25 Points
-        </button>
+        <div class="tab-content" id="myTabContent">
+          <div class="tab-pane fade show active" id="earn" role="tabpanel">
+            <div class="text-center mt-3">
+              <p>Ads viewed today: <strong id="ad-count">0/10</strong></p>
+              <button id="earn-points-btn" class="btn btn-earn w-100 mt-3">
+                Watch Ad & Earn 25 Points
+              </button>
+            </div>
+          </div>
+          
+          <div class="tab-pane fade" id="wallet" role="tabpanel">
+            <div class="text-center mt-3">
+              <h5>Your Points Balance</h5>
+              <h1 id="points-balance">0</h1>
+              <p class="text-muted">Points can be redeemed for rewards</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js';
     import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
@@ -61,6 +115,53 @@
     const db = getFirestore(app);
 
     let currentUser = null;
+    const POINTS_PER_AD = 25;
+    const MAX_ADS_PER_DAY = 10;
+
+    // Load points from localStorage
+    function getPoints() {
+      return parseInt(localStorage.getItem('userPoints')) || 0;
+    }
+
+    // Save points to localStorage
+    function savePoints(points) {
+      localStorage.setItem('userPoints', points.toString());
+      updatePointsDisplay();
+    }
+
+    // Update points display
+    function updatePointsDisplay() {
+      document.getElementById('points-balance').textContent = getPoints();
+    }
+
+    // Check if date is today
+    function isToday(date) {
+      const today = new Date();
+      return date.getDate() === today.getDate() &&
+             date.getMonth() === today.getMonth() &&
+             date.getFullYear() === today.getFullYear();
+    }
+
+    // Reset ad count if it's a new day
+    async function checkAndResetAdCount(userId) {
+      const userRef = doc(db, "users", userId);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        const lastAdDate = data.lastAdDate?.toDate();
+        
+        if (!lastAdDate || !isToday(lastAdDate)) {
+          await updateDoc(userRef, {
+            adViews: 0,
+            lastAdDate: new Date()
+          });
+          return 0;
+        }
+        return data.adViews || 0;
+      }
+      return 0;
+    }
 
     // Update ad views in Firestore only when ad is successfully completed
     async function updateAdViews(userId) {
@@ -69,16 +170,17 @@
         const userSnap = await getDoc(userRef);
         
         const currentViews = userSnap.exists() ? (userSnap.data().adViews || 0) : 0;
+        const newViews = currentViews + 1;
         
         await updateDoc(userRef, {
-          adViews: currentViews + 1,
+          adViews: newViews,
           lastAdDate: new Date()
         });
         
-        return true;
+        return newViews;
       } catch (error) {
         console.error("Error updating ad views:", error);
-        return false;
+        return null;
       }
     }
 
@@ -88,18 +190,31 @@
         // Android version - setup callback
         window.adCompleteCallback = async function(success) {
           if (success && currentUser) {
-            const updated = await updateAdViews(currentUser.uid);
+            const newViews = await updateAdViews(currentUser.uid);
             
-            if (updated) {
+            if (newViews !== null) {
+              // Update local points
+              const currentPoints = getPoints();
+              savePoints(currentPoints + POINTS_PER_AD);
+              
+              // Update UI
+              document.getElementById('ad-count').textContent = `${newViews}/${MAX_ADS_PER_DAY}`;
+              
               Swal.fire({
                 title: 'Thank You!',
                 text: '25 points have been added to your wallet!',
                 icon: 'success'
               });
+              
+              // Disable button if limit reached
+              if (newViews >= MAX_ADS_PER_DAY) {
+                document.getElementById('earn-points-btn').disabled = true;
+                document.getElementById('earn-points-btn').textContent = 'Daily Limit Reached';
+              }
             } else {
               Swal.fire({
                 title: 'Error',
-                text: 'Points could not be added. Please try again.',
+                text: 'Ad view could not be recorded. Please try again.',
                 icon: 'error'
               });
             }
@@ -110,6 +225,11 @@
               icon: 'info'
             });
           }
+          
+          // Re-enable button
+          const btn = document.getElementById('earn-points-btn');
+          btn.disabled = false;
+          btn.textContent = 'Watch Ad & Earn 25 Points';
         };
         window.Android.showRewardedAd();
       } else {
@@ -119,17 +239,37 @@
           text: 'Ads are only available in the Android app version',
           icon: 'info'
         });
+        
+        // Re-enable button
+        document.getElementById('earn-points-btn').disabled = false;
+        document.getElementById('earn-points-btn').textContent = 'Watch Ad & Earn 25 Points';
       }
     }
 
     // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       const earnPointsBtn = document.getElementById('earn-points-btn');
       
       // Check auth state
-      onAuthStateChanged(auth, (user) => {
+      onAuthStateChanged(auth, async (user) => {
         if (user) {
           currentUser = user;
+          
+          // Check/reset ad count for today
+          const adViews = await checkAndResetAdCount(user.uid);
+          document.getElementById('ad-count').textContent = `${adViews}/${MAX_ADS_PER_DAY}`;
+          
+          // Disable button if limit reached
+          if (adViews >= MAX_ADS_PER_DAY) {
+            earnPointsBtn.disabled = true;
+            earnPointsBtn.textContent = 'Daily Limit Reached';
+          }
+          
+          // Hide loader
+          document.getElementById('loader').style.display = 'none';
+          
+          // Update points display
+          updatePointsDisplay();
         } else {
           window.location.href = "index.html";
         }
@@ -146,18 +286,24 @@
           return;
         }
         
+        // Check daily limit
+        const currentCount = parseInt(document.getElementById('ad-count').textContent.split('/')[0]);
+        if (currentCount >= MAX_ADS_PER_DAY) {
+          Swal.fire({
+            title: 'Daily Limit Reached',
+            text: `You can only watch ${MAX_ADS_PER_DAY} ads per day`,
+            icon: 'info'
+          });
+          return;
+        }
+        
         earnPointsBtn.disabled = true;
-        earnPointsBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
+        earnPointsBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading Ad...';
         
         showInterstitialAdForCoins();
-        
-        // Re-enable button after 5 seconds if no response
-        setTimeout(() => {
-          earnPointsBtn.disabled = false;
-          earnPointsBtn.textContent = 'Watch Ad & Earn 25 Points';
-        }, 5000);
       });
     });
   </script>
 </body>
 </html>
+
