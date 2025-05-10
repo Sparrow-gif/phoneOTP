@@ -4,13 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,shrink-to-fit=no,viewport-fit=cover">
     <title>SolveIt - Quiz Game</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto:wght@300;400;700&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://web3forms.com/client/script.js" async defer></script>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
     <style>
         :root {
             --background-color: #ffffff;
@@ -44,33 +39,6 @@
             color: var(--text-color);
             min-height: 100vh;
             min-width: 100vw;
-        }
-        
-        /* Auth UI */
-        .auth-container {
-            max-width: 400px;
-            margin: 20px auto;
-            padding: 20px;
-            border-radius: 10px;
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-        .auth-btn {
-            padding: 10px 20px;
-            margin: 10px;
-            border: none;
-            border-radius: 5px;
-            color: white;
-            cursor: pointer;
-        }
-        .login-btn {
-            background-color: #4285F4;
-        }
-        .logout-btn {
-            background-color: #EA4335;
-        }
-        .user-info {
-            margin: 20px 0;
-            font-size: 16px;
         }
         
         /* Quiz Styles */
@@ -176,7 +144,7 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
             padding: 30px 20px;
             border-radius: 30px;
-            display: flex;
+            display: none;
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -244,23 +212,34 @@
             max-width: 520px;
             display: block;
         }
+        
+        /* Loading Spinner */
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
     </style>
 </head>
 <body oncontextmenu="return false">
-    <!-- Firebase Auth UI -->
-    <div id="auth-container" class="auth-container">
-        <div id="user-info" class="user-info hidden">
-            Logged in as: <span id="user-email"></span>
-            <button id="logout-btn" class="auth-btn logout-btn">Logout</button>
-        </div>
-        <div id="login-section" class="hidden">
-            <button id="login-btn" class="auth-btn login-btn">Login with Google</button>
+    <!-- Loading Spinner -->
+    <div class="spinner-overlay" id="spinner">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
         </div>
     </div>
 
     <div class="tabs">
-        <button class="tab-btn active" data-tab="quiz"> Quiz </button>
-        <button class="tab-btn" data-tab="rewards"> My Points </button>
+        <button class="tab-btn active" data-tab="quiz">Quiz</button>
+        <button class="tab-btn" data-tab="rewards">My Points</button>
     </div>
 
     <div id="quiz" class="tab-content active">
@@ -279,44 +258,39 @@
             </div>
         </div>
         
-        <div id="resultContainer" style="display: none;">
+        <div id="resultContainer">
             <div class="final-result">Quiz Completed!</div>
             <img src="trophy.svg" class="trophy" draggable="false" alt="Trophy">
             <div id="finalScore"></div>
             <div id="coinsEarned"></div>
             <button id="homeBtn" class="home-btn">Back to Home</button>
-            <button id="extraCoinsBtn" class="extra-coins-btn"> Get Extra 25 Points </button>
+            <button id="extraCoinsBtn" class="extra-coins-btn">Get Extra 25 Points</button>
         </div>
     </div>
 
     <div id="rewards" class="tab-content">
         <div class="reward-container">
-            <h2> Submit To LeaderBoard </h2>
+            <h2>Submit To LeaderBoard</h2>
             <div class="wallet-balance">
-                My Points : <span id="walletBalance">0</span> coins
+                My Points: <span id="walletBalance">0</span> coins
             </div>
             <div class="min-redeem">
                 Minimum submit: 1200 coins
             </div>
-            <form id="redeemForm" class="redeem-form" action="https://api.web3forms.com/submit" method="POST">
-                <input type="hidden" name="access_key" value="165a9647-54cc-4e12-954f-17c533af72f8">
-                <input type="hidden" name="subject" value="Coin Redemption Request">
-                <input type="hidden" name="coins" id="formCoins" value="">
-                <input type="hidden" name="amount" id="formAmount" value="">
-                
+            <form id="redeemForm" class="redeem-form">
                 <input type="text" id="name" name="name" placeholder="Your Name" required>
                 <input type="email" id="email" name="email" placeholder="Your Email" required>
                 <input type="text" id="upiId" name="upi_id" placeholder="Enter App ID / Name" required>
                 <select id="redeemAmount" name="redeem_amount" required>
                     <option value="" disabled selected>Select Points</option>
-                    <option value="10"> 1200 points = extra 10 coin </option>
+                    <option value="10">1200 points = extra 10 coin</option>
                 </select>
-                <button type="submit" id="redeemBtn" class="redeem-btn"> Submit To LeaderBoard </button>
-                <small> *Only top 10 users are showing on leaderboard. Coins are used only for leaderboard ranking. </small>
+                <button type="submit" id="redeemBtn" class="redeem-btn">Submit To LeaderBoard</button>
+                <small>*Only top 10 users are showing on leaderboard. Coins are used only for leaderboard ranking.</small>
             </form>
             <div id="form-result" class="hidden"></div>
         </div>
-        <a href="leaderboard.html" class="leaderboard"> Go To Leaderboard </a>
+        <a href="leaderboard.html" class="leaderboard">Go To Leaderboard</a>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -333,12 +307,9 @@
         };
 
         // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-
-        // Google Auth Provider
-        const provider = new firebase.auth.GoogleAuthProvider();
 
         // Quiz data
         const quizQuestions = [
@@ -346,12 +317,7 @@
             { question: "What is 19 - 11?", options: ["8", "7", "10", "9"], correctAnswer: "8" },
             { question: "What is 7 + 6?", options: ["12", "14", "15", "13"], correctAnswer: "13" },
             { question: "What is 15 - 8?", options: ["6", "7", "9", "8"], correctAnswer: "7" },
-            { question: "What is 9 + 4?", options: ["13", "12", "14", "15"], correctAnswer: "13" },
-            { question: "What is 17 - 9?", options: ["7", "10", "9", "8"], correctAnswer: "8" },
-            { question: "What is 6 + 9?", options: ["15", "14", "17", "16"], correctAnswer: "15" },
-            { question: "What is 14 - 6?", options: ["9", "8", "7", "10"], correctAnswer: "8" },
-            { question: "What is 8 + 7?", options: ["14", "16", "15", "17"], correctAnswer: "15" },
-            { question: "What is 20 - 12?", options: ["9", "10", "7", "8"], correctAnswer: "8" }
+            { question: "What is 9 + 4?", options: ["13", "12", "14", "15"], correctAnswer: "13" }
         ];
 
         // Game state
@@ -365,11 +331,7 @@
         let currentUser = null;
 
         // DOM elements
-        const authContainer = document.getElementById('auth-container');
-        const userInfo = document.getElementById('user-info');
-        const userEmail = document.getElementById('user-email');
-        const loginBtn = document.getElementById('login-btn');
-        const logoutBtn = document.getElementById('logout-btn');
+        const spinner = document.getElementById('spinner');
         const startBtn = document.getElementById('startBtn');
         const quizContainer = document.getElementById('quizContainer');
         const questionElement = document.getElementById('question');
@@ -390,123 +352,98 @@
         const tabBtns = document.querySelectorAll('.tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
 
+        // Show loading spinner
+        function showSpinner() {
+            spinner.style.display = 'flex';
+        }
+
+        // Hide loading spinner
+        function hideSpinner() {
+            spinner.style.display = 'none';
+        }
+
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
-            // Set up auth state listener
-            auth.onAuthStateChanged(user => {
-                currentUser = user;
-                if (user) {
-                    // User is signed in
-                    userInfo.classList.remove('hidden');
-                    userEmail.textContent = user.email;
-                    document.getElementById('login-section').classList.add('hidden');
-                    loadUserData();
-                } else {
-                    // User is signed out
-                    userInfo.classList.add('hidden');
-                    document.getElementById('login-section').classList.remove('hidden');
-                    Swal.fire({
-                        title: 'Login Required',
-                        text: 'You need to login to play the quiz',
-                        icon: 'info'
-                    });
-                }
-            });
-
-            // Set up login button
-            loginBtn.addEventListener('click', () => {
-                auth.signInWithPopup(provider).catch(error => {
-                    Swal.fire('Error', error.message, 'error');
-                });
-            });
-
-            // Set up logout button
-            logoutBtn.addEventListener('click', () => {
-                auth.signOut().then(() => {
-                    Swal.fire('Logged Out', 'You have been logged out successfully', 'success');
-                }).catch(error => {
-                    Swal.fire('Error', error.message, 'error');
-                });
-            });
-
-            // Rest of your initialization code...
-            startBtn.addEventListener('click', startQuiz);
-            homeBtn.addEventListener('click', resetQuiz);
-            extraCoinsBtn.addEventListener('click', showExtraCoinsConfirmation);
+            showSpinner();
             
-            // Tab switching
-            tabBtns.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const tabId = this.getAttribute('data-tab');
-                    switchTab(tabId);
-                });
-            });
+            // Set up auth state listener
+            auth.onAuthStateChanged(async (user) => {
+                currentUser = user;
+                if (!user) {
+                    // Redirect to login page if not logged in
+                    window.location.href = 'index.html';
+                    return;
+                }
+                
+                try {
+                    // Load user data
+                    await loadUserData();
+                    
+                    // Initialize UI
+                    startBtn.addEventListener('click', startQuiz);
+                    homeBtn.addEventListener('click', resetQuiz);
+                    extraCoinsBtn.addEventListener('click', showExtraCoinsConfirmation);
+                    
+                    // Tab switching
+                    tabBtns.forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const tabId = this.getAttribute('data-tab');
+                            switchTab(tabId);
+                        });
+                    });
 
-            // Web3Forms setup
-            if (redeemForm) {
-                redeemForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    const amount = parseInt(redeemAmountSelect.value);
-                    const requiredCoins = amount * 120;
-                    
-                    if (coins < requiredCoins) {
-                        Swal.fire('Error', `You need ${requiredCoins} coins to submition`, 'error');
-                        return;
-                    }
-                    
-                    document.getElementById('formCoins').value = requiredCoins;
-                    document.getElementById('formAmount').value = amount;
-                    
-                    const formData = new FormData(redeemForm);
-                    fetch(redeemForm.action, {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
+                    // Form submission
+                    redeemForm.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        const amount = parseInt(redeemAmountSelect.value);
+                        const requiredCoins = amount * 120;
+                        
+                        if (coins < requiredCoins) {
+                            Swal.fire('Error', `You need ${requiredCoins} coins to submit`, 'error');
+                            return;
+                        }
+                        
+                        // Simulate form submission
+                        showSpinner();
+                        setTimeout(() => {
                             coins -= requiredCoins;
                             saveUserData();
                             updateWalletBalance();
-                            
-                            Swal.fire(
-                                'Success!',
-                                `Your LeaderBoard submition request has been submitted.`,
-                                'success'
-                            );
+                            hideSpinner();
+                            Swal.fire('Success', 'Your submission has been recorded!', 'success');
                             redeemForm.reset();
-                        } else {
-                            Swal.fire('Error', 'There was an error submitting your request. Please try again.', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        Swal.fire('Error', 'There was an error submitting your request. Please try again.', 'error');
+                        }, 1500);
                     });
-                });
-            }
+                    
+                    hideSpinner();
+                } catch (error) {
+                    hideSpinner();
+                    console.error("Initialization error:", error);
+                    Swal.fire('Error', 'Failed to initialize the app. Please try again.', 'error');
+                }
+            });
         });
 
         // Load user data from Firestore
         async function loadUserData() {
             if (!currentUser) return;
 
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+            const today = new Date().toISOString().split('T')[0];
             const userDoc = await db.collection('users').doc(currentUser.uid).get();
             
             if (userDoc.exists) {
                 const data = userDoc.data();
                 coins = data.coins || 0;
                 
-                // Check if it's a new day for ad count
-                if (data.lastAdDate === today) {
-                    adsWatchedToday = data.adsWatchedToday || 0;
-                } else {
+                // Reset ad count if it's a new day
+                if (data.lastAdDate !== today) {
                     adsWatchedToday = 0;
-                    // Update the last ad date
                     await db.collection('users').doc(currentUser.uid).update({
                         lastAdDate: today,
                         adsWatchedToday: 0
                     });
+                } else {
+                    adsWatchedToday = data.adsWatchedToday || 0;
                 }
             } else {
                 // Initialize new user
@@ -551,7 +488,7 @@
         // Start quiz
         function startQuiz() {
             if (!currentUser) {
-                Swal.fire('Login Required', 'You need to login to play the quiz', 'info');
+                window.location.href = 'index.html';
                 return;
             }
             
@@ -559,6 +496,7 @@
             score = 0;
             startBtn.style.display = 'none';
             quizContainer.style.display = 'block';
+            resultContainer.style.display = 'none';
             showQuestion();
         }
 
@@ -647,9 +585,9 @@
             await saveUserData();
             
             quizContainer.style.display = 'none';
-            resultContainer.style.display = 'block';
+            resultContainer.style.display = 'flex';
             finalScoreElement.textContent = `Your score: ${score}/${quizQuestions.length}`;
-            coinsEarnedElement.textContent = `Awesome! You received 5 points!`;
+            coinsEarnedElement.textContent = `You earned 5 points!`;
         }
 
         // Reset quiz
@@ -664,14 +602,14 @@
         // Show confirmation for extra coins
         function showExtraCoinsConfirmation() {
             if (!currentUser) {
-                Swal.fire('Login Required', 'You need to login to get extra coins', 'info');
+                window.location.href = 'index.html';
                 return;
             }
             
             if (adsWatchedToday >= 10) {
                 Swal.fire({
                     title: 'Daily Limit Reached',
-                    text: 'You\'ve earned all extra points for today. Come back tomorrow!',
+                    text: 'You\'ve watched the maximum 10 ads today. Come back tomorrow!',
                     icon: 'info'
                 });
                 return;
@@ -695,41 +633,35 @@
             });
         }
 
-        // Show interstitial ad for coins (Android only)
+        // Show interstitial ad for coins
         async function showInterstitialAdForCoins() {
-            if (window.Android && typeof window.Android.showRewardedAd === 'function') {
-                // Android version - setup callback
-                window.adCompleteCallback = async function(success) {
-                    if (success) {
-                        adsWatchedToday++;
-                        coins += 25;
-                        await saveUserData();
-                        Swal.fire({
-                            title: 'Thank You!',
-                            text: '25 points have been added to your wallet!',
-                            icon: 'success'
-                        });
-                        resetQuiz();
-                    } else {
-                        Swal.fire({
-                            title: 'Ad Not Available',
-                            text: 'The ad is not ready yet. Please try again later.',
-                            icon: 'error'
-                        });
-                    }
-                };
-                window.Android.showRewardedAd();
-            } else {
-                // Web version - simulate ad watching
+            showSpinner();
+            
+            try {
+                // Simulate ad loading (2 seconds)
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Update ad count and coins
                 adsWatchedToday++;
                 coins += 25;
                 await saveUserData();
+                
+                hideSpinner();
                 Swal.fire({
-                    title: 'Success!',
+                    title: 'Thank You!',
                     text: '25 points have been added to your wallet!',
                     icon: 'success'
                 });
+                updateAdCounterUI();
+                updateWalletBalance();
                 resetQuiz();
+            } catch (error) {
+                hideSpinner();
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to load ad. Please try again later.',
+                    icon: 'error'
+                });
             }
         }
 
