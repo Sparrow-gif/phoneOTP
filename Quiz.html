@@ -400,7 +400,7 @@
                 redeemForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     const amount = parseInt(redeemAmountSelect.value);
-                    const requiredCoins = amount * 120;
+                    const requiredCoins = amount * 2;                // 20 = 200 coin
                     
                     if (coins < requiredCoins) {
                         Swal.fire('Error', `You need ${requiredCoins} coins to submition`, 'error');
@@ -695,7 +695,7 @@
 
         // Start timer for current question
         function startTimer() {
-            timeLeft = 3; // 3 seconds delay before next question
+            timeLeft = 6; // 6 seconds delay before next question
             timerElement.textContent = `Next question in: ${timeLeft}s`;
             timerElement.classList.remove('hidden');
 
