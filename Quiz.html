@@ -400,7 +400,7 @@
                 redeemForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     const amount = parseInt(redeemAmountSelect.value);
-                    const requiredCoins = amount * 2;                // 20 = 200 coin
+                    const requiredCoins = amount * 120;                               // 20 = 200 coin
                     
                     if (coins < requiredCoins) {
                         Swal.fire('Error', `You need ${requiredCoins} coins to submition`, 'error');
@@ -558,7 +558,7 @@
                 window.adCompleteCallback = async function(success) {
                     if (success && currentUser) {
                         adsWatchedToday++;
-                        coins += 25;
+                        coins += 25;                          // ADDED extra 25 Coins
                         
                         // Update Firebase first
                         const firebaseSuccess = await updateAdCountInFirebase();
@@ -695,7 +695,7 @@
 
         // Start timer for current question
         function startTimer() {
-            timeLeft = 6; // 6 seconds delay before next question
+            timeLeft = 6;                                               // 6 seconds delay before next question
             timerElement.textContent = `Next question in: ${timeLeft}s`;
             timerElement.classList.remove('hidden');
 
@@ -729,7 +729,7 @@
             quizContainer.style.display = 'none';
             resultContainer.style.display = 'flex';
             
-            // Always award exactly 5 coins
+                                                     // Always award added exactly 5 coins
             const totalCoins = 5;
             
             coins += totalCoins;
