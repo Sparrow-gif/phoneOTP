@@ -3,106 +3,87 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
   <title>Secure Login</title>
-  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto:wght@300;400;700&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">  
-  
   <style>
     :root { 
-           --bg-color: #B771E5;
-           --form-color: #ffffff;
-           --text-color: #000000;
-        }
-      @media (prefers-color-scheme: dark) {
-            :root {
-                 --bg-color: #3E3F5B;
-                 --form-color: #6a6b9c;
-                 --text-color: #f0f0f0;
-            }
-        }  
-
-      * {
-          margin: 0;
-          padding: 0;
-          box-shadow: border-box;
-          user-select: none;
-          font-family: 'Poppins', sans-serif;
-      }
-      body {
-          font-family: 'Poppins', sans-serif;
-          min-height: 100vh;
-          background: var(--bg-color);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          margin: 0;
-          padding: 0;
-          box-shadow: border-box;
-          user-select: none;
-       }
-
-      main {
-         min-height: 70vh;
-         background: var(--form-color);
-         color: var(--text-color);
-         position: absolute;
-         bottom: 0px;
-         border-top-left-radius: 30px;
-         border-top-right-radius: 30px;
-         width: 100%;
-         padding: 30px 30px 15px;
-         box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      --bg-color: #B771E5;
+      --form-color: #ffffff;
+      --text-color: #000000;
     }
-    .account-options {
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #3E3F5B;
+        --form-color: #6a6b9c;
+        --text-color: #f0f0f0;
+      }
+    }  
+    body {
+      font-family: 'Poppins', sans-serif;
+      min-height: 100vh;
+      background: var(--bg-color);
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+    }
+    main {
+      min-height: 70vh;
+      background: var(--form-color);
+      color: var(--text-color);
+      position: absolute;
+      bottom: 0px;
+      border-top-left-radius: 30px;
+      border-top-right-radius: 30px;
+      width: 100%;
+      padding: 30px 30px 15px;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+    .account-info {
+      font-size: 0.8rem;
+      color: #666;
       margin-top: 10px;
     }
-    
   </style>
 </head>
 <body oncontextmenu="return false">
 
-  <main class="container">          
+  <main class="container">
     <div class="card-body">
-      <form id="loginForm" novalidate>
-        <div class="mb-1">
+      <h3 class="text-center mb-4">Login or Create Account</h3>
+      <form id="authForm" novalidate>
+        <div class="mb-3">
           <label for="email" class="form-label">Email</label>
-          <input type="email" id="email" class="form-control" placeholder="Enter Email" required>
-          <div class="invalid-feedback">Please enter a valid email address</div>
+          <input type="email" id="email" class="form-control" placeholder="Enter your email" required>
+          <div class="invalid-feedback">Please enter a valid email</div>
         </div>
         <div class="mb-3">
           <label for="password" class="form-label">Password</label>
           <div class="input-group">
-            <input type="password" id="password" class="form-control" placeholder="Enter Password" required>
+            <input type="password" id="password" class="form-control" placeholder="Enter password (6+ characters)" required>
             <button type="button" class="btn btn-secondary" id="togglePassword">
               <i class="bi bi-eye-slash"></i>
             </button>
-            <div class="invalid-feedback">Password must be at least 6 characters</div>
+            <div class="invalid-feedback">Password must be 6+ characters</div>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary w-100" id="loginButton">
-          <span id="buttonText">Login</span>
-          <span id="loadingSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+        <button type="submit" class="btn btn-primary w-100" id="authButton">
+          <span id="buttonText">Continue</span>
+          <span id="loadingSpinner" class="spinner-border spinner-border-sm d-none"></span>
         </button>
+        <div class="account-info text-center mt-3">
+          <p id="accountStatus">Enter your credentials to login or create account</p>
+        </div>
       </form>
-      <hr>
-      <div class="account-options">
-        <p class="small"><a href="#" id="createAccountLink">Create New Account</a></p>
-        <p class="small"><a href="#" id="forgotPasswordLink">Forgot Password?</a></p>
-      </div>
     </div>
   </main>
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js';
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
     import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js';
 
     const firebaseConfig = {
@@ -120,15 +101,14 @@
     const db = getFirestore(app);
 
     // DOM Elements
-    const loginForm = document.getElementById('loginForm');
+    const authForm = document.getElementById('authForm');
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
     const togglePassword = document.getElementById('togglePassword');
-    const loginButton = document.getElementById('loginButton');
+    const authButton = document.getElementById('authButton');
     const buttonText = document.getElementById('buttonText');
     const loadingSpinner = document.getElementById('loadingSpinner');
-    const createAccountLink = document.getElementById('createAccountLink');
-    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    const accountStatus = document.getElementById('accountStatus');
 
     // Generate or get device ID
     const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
@@ -141,16 +121,6 @@
       }
     });
 
-    // Input Validation
-    function validateEmail(email) {
-      const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return re.test(email);
-    }
-
-    function validatePassword(password) {
-      return password.length >= 6;
-    }
-
     // Toggle Password Visibility
     togglePassword.addEventListener('click', function() {
       const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
@@ -158,8 +128,36 @@
       this.innerHTML = type === 'password' ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
     });
 
-    // Form Submission for LOGIN
-    loginForm.addEventListener('submit', async function(e) {
+    // Check account status when email changes
+    emailInput.addEventListener('blur', async function() {
+      const email = this.value.trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+      
+      try {
+        // Check if device already has an account
+        const deviceRef = doc(db, "devices", deviceId);
+        const deviceSnap = await getDoc(deviceRef);
+        
+        if (deviceSnap.exists()) {
+          const deviceEmail = deviceSnap.data().email;
+          if (deviceEmail === email) {
+            accountStatus.innerHTML = `<i class="bi bi-check-circle-fill text-success"></i> This device has an existing account`;
+            buttonText.textContent = 'Login';
+          } else {
+            accountStatus.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-warning"></i> This device already has an account with another email`;
+            buttonText.textContent = 'Continue';
+          }
+        } else {
+          accountStatus.innerHTML = `<i class="bi bi-info-circle-fill text-primary"></i> No account found - will create new one`;
+          buttonText.textContent = 'Create Account';
+        }
+      } catch (error) {
+        console.error("Error checking account:", error);
+      }
+    });
+
+    // Form Submission
+    authForm.addEventListener('submit', async function(e) {
       e.preventDefault();
       
       // Validate inputs
@@ -167,14 +165,14 @@
       const password = passwordInput.value.trim();
       let isValid = true;
 
-      if (!validateEmail(email)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         emailInput.classList.add('is-invalid');
         isValid = false;
       } else {
         emailInput.classList.remove('is-invalid');
       }
 
-      if (!validatePassword(password)) {
+      if (password.length < 6) {
         passwordInput.classList.add('is-invalid');
         isValid = false;
       } else {
@@ -184,87 +182,54 @@
       if (!isValid) return;
 
       // Set loading state
-      loginButton.disabled = true;
-      buttonText.textContent = 'Logging in...';
+      authButton.disabled = true;
+      buttonText.textContent = 'Processing...';
       loadingSpinner.classList.remove('d-none');
 
       try {
-        await signInWithEmailAndPassword(auth, email, password);
-        Swal.fire("Success", "Login successful!", "success").then(() => {
-          window.location.href = 'dashboard.html';
-        });
-      } catch (error) {
-        let errorMessage = "Login failed. Please try again.";
-        
-        if (error.code === 'auth/user-not-found') {
-          errorMessage = "Account not found. Please create an account first.";
-        } else if (error.code === 'auth/wrong-password') {
-          errorMessage = "Incorrect password. Please try again.";
+        // First try to login
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          Swal.fire("Success", "Login successful!", "success").then(() => {
+            window.location.href = 'dashboard.html';
+          });
+          return;
+        } catch (loginError) {
+          if (loginError.code === 'auth/user-not-found') {
+            // Check if device already registered with different email
+            const deviceRef = doc(db, "devices", deviceId);
+            const deviceSnap = await getDoc(deviceRef);
+            
+            if (deviceSnap.exists()) {
+              Swal.fire("Error", "This device already has an account with another email. Only one account per device is allowed.", "error");
+              return;
+            }
+
+            // Create new account if no existing device account
+            const userCred = await createUserWithEmailAndPassword(auth, email, password);
+            await setDoc(doc(db, "devices", deviceId), { 
+              uid: userCred.user.uid, 
+              email: email,
+              createdAt: new Date()
+            });
+            
+            Swal.fire("Success", "Account created and logged in!", "success").then(() => {
+              window.location.href = 'dashboard.html';
+            });
+          } else if (loginError.code === 'auth/wrong-password') {
+            Swal.fire("Error", "Incorrect password. Please try again.", "error");
+          } else {
+            throw loginError;
+          }
         }
-        
-        Swal.fire("Error", errorMessage, "error");
+      } catch (error) {
+        Swal.fire("Error", error.message || "Authentication failed", "error");
       } finally {
         // Reset loading state
-        loginButton.disabled = false;
-        buttonText.textContent = 'Login';
+        authButton.disabled = false;
+        buttonText.textContent = 'Continue';
         loadingSpinner.classList.add('d-none');
       }
-    });
-
-    // Create Account Functionality
-    createAccountLink.addEventListener('click', async function(e) {
-      e.preventDefault();
-      
-      // Check if device already has an account
-      const deviceRef = doc(db, "devices", deviceId);
-      const deviceSnap = await getDoc(deviceRef);
-      
-      if (deviceSnap.exists()) {
-        Swal.fire("Error", "This device already has an account. Only one account per device is allowed.", "error");
-        return;
-      }
-      
-      const email = prompt("Please enter your email:");
-      if (!email || !validateEmail(email)) {
-        Swal.fire("Error", "Please enter a valid email address", "error");
-        return;
-      }
-      
-      const password = prompt("Please enter a password (at least 6 characters):");
-      if (!password || password.length < 6) {
-        Swal.fire("Error", "Password must be at least 6 characters", "error");
-        return;
-      }
-      
-      try {
-        // Create user account
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        
-        // Record device registration
-        await setDoc(deviceRef, { 
-          uid: userCredential.user.uid,
-          email: email,
-          createdAt: new Date() 
-        });
-        
-        Swal.fire("Success", "Account created successfully!", "success").then(() => {
-          window.location.reload();
-        });
-      } catch (error) {
-        let errorMessage = "Account creation failed. Please try again.";
-        
-        if (error.code === 'auth/email-already-in-use') {
-          errorMessage = "This email is already registered. Please login instead.";
-        }
-        
-        Swal.fire("Error", errorMessage, "error");
-      }
-    });
-
-    // Forgot Password (placeholder)
-    forgotPasswordLink.addEventListener('click', function(e) {
-      e.preventDefault();
-      Swal.fire("Info", "Password reset functionality will be added soon.", "info");
     });
   </script>
 </body>
