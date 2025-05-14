@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/fingerprintjs2@2.1.4/dist/fingerprint2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cordova-android-id@1.0.0/cordova-android-id.min.js">
   <style>
     :root { 
       --bg-color: #B771E5;
@@ -92,106 +93,22 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Enhanced device fingerprinting
-    async function getEnhancedDeviceId() {
-      return new Promise((resolve) => {
-        // Check if we already have a device ID
-        if (localStorage.getItem('enhancedDeviceId')) {
-          resolve(localStorage.getItem('enhancedDeviceId'));
-          return;
+    // Function to get Android ID from WebView
+    async function getAndroidId() {
+      return new Promise((resolve, reject) => {
+        // Check if running in WebView with Android interface
+        if (typeof Android !== 'undefined' && Android.getAndroidId) {
+          const androidId = Android.getAndroidId();
+          if (androidId) {
+            resolve(androidId);
+          } else {
+            reject(new Error('ANDROID_ID_NOT_AVAILABLE'));
+          }
+        } else {
+          reject(new Error('NOT_IN_ANDROID_WEBVIEW'));
         }
-
-        // Combine multiple identification methods
-        const getStableIdentifiers = () => {
-          const identifiers = [];
-          
-          // 1. FingerprintJS (if available)
-          if (typeof Fingerprint2 !== 'undefined') {
-            Fingerprint2.get((components) => {
-              const values = components.map(component => component.value);
-              identifiers.push(Fingerprint2.x64hash128(values.join(''), 31));
-            });
-          }
-          
-          // 2. Hardware concurrency and device memory
-          if (navigator.hardwareConcurrency) {
-            identifiers.push(`hc-${navigator.hardwareConcurrency}`);
-          }
-          if (navigator.deviceMemory) {
-            identifiers.push(`dm-${navigator.deviceMemory}`);
-          }
-          
-          // 3. Screen properties
-          identifiers.push(`sr-${window.screen.width}x${window.screen.height}`);
-          identifiers.push(`dp-${window.devicePixelRatio}`);
-          
-          // 4. Timezone and language
-          identifiers.push(`tz-${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
-          identifiers.push(`lang-${navigator.language}`);
-          
-          // 5. WebGL fingerprint
-          try {
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-            if (gl) {
-              const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-              if (debugInfo) {
-                identifiers.push(`gpu-${gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)}`);
-              }
-            }
-          } catch (e) {}
-          
-          return identifiers.join('|');
-        };
-
-        // Generate a composite ID
-        const compositeId = `device-${CryptoJS.MD5(getStableIdentifiers()).toString()}`;
-        localStorage.setItem('enhancedDeviceId', compositeId);
-        resolve(compositeId);
       });
     }
-
-    // Check for dual/clone app environment
-    function detectCloneApp() {
-      return new Promise((resolve) => {
-        // Method 1: Check for known clone app signatures
-        const knownCloneApps = ['parallel', 'dual', 'multi', 'clone', 'accounts', 'spaces'];
-        const userAgent = navigator.userAgent.toLowerCase();
-        
-        // Method 2: Check for abnormal storage behavior
-        const testKey = 'cloneAppTest';
-        try {
-          localStorage.setItem(testKey, 'test');
-          localStorage.removeItem(testKey);
-        } catch (e) {
-          resolve(true);
-          return;
-        }
-        
-        // Method 3: Check for multiple profiles
-        if (navigator.getInstalledRelatedApps) {
-          navigator.getInstalledRelatedApps().then(apps => {
-            if (apps.length > 1) {
-              resolve(true);
-              return;
-            }
-          }).catch(() => {});
-        }
-        
-        // Method 4: Check for virtualization
-        setTimeout(() => {
-          resolve(knownCloneApps.some(app => userAgent.includes(app)));
-        }, 100);
-      });
-    }
-
-    // Toggle password visibility
-    document.getElementById('togglePassword').addEventListener('click', function() {
-      const passwordInput = document.getElementById('password');
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
-      this.innerHTML = type === 'password' ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
-    });
 
     // Handle form submission
     document.getElementById('signupForm').addEventListener('submit', async (e) => {
@@ -220,17 +137,11 @@
       loadingSpinner.classList.remove('d-none');
 
       try {
-        // Check for clone app environment first
-        const isCloneApp = await detectCloneApp();
-        if (isCloneApp) {
-          throw new Error('Multiple accounts not allowed. Please use the original app.');
-        }
-
-        // Get enhanced device ID
-        const deviceId = await getEnhancedDeviceId();
+        // Get Android ID - will throw error if not available
+        const androidId = await getAndroidId();
         
-        // Check if this device already has an account
-        const deviceDoc = await getDoc(doc(db, "devices", deviceId));
+        // Check if this Android ID already has an account
+        const deviceDoc = await getDoc(doc(db, "androidDevices", androidId));
         if (deviceDoc.exists()) {
           throw new Error('This device already has an account. Only one account per device is allowed.');
         }
@@ -245,20 +156,13 @@
         batch.set(doc(db, "users", userCredential.user.uid), {
           email: email,
           createdAt: new Date(),
-          deviceId: deviceId,
-          deviceInfo: {
-            screen: `${window.screen.width}x${window.screen.height}`,
-            platform: navigator.platform,
-            cores: navigator.hardwareConcurrency || 'unknown',
-            memory: navigator.deviceMemory || 'unknown'
-          }
+          androidId: androidId
         });
 
-        // Record the device ID
-        batch.set(doc(db, "devices", deviceId), {
+        // Record the Android ID
+        batch.set(doc(db, "androidDevices", androidId), {
           userId: userCredential.user.uid,
-          registeredAt: new Date(),
-          ipAddress: await getIPAddress() // Additional security layer
+          registeredAt: new Date()
         });
 
         // Commit the batch
@@ -274,11 +178,13 @@
       } catch (error) {
         let errorMessage = error.message;
         
-        // More user-friendly error messages
-        if (error.code === 'permission-denied') {
-          errorMessage = "Account creation not allowed from this environment.";
+        // Custom error messages
+        if (error.message === 'ANDROID_ID_NOT_AVAILABLE') {
+          errorMessage = "Account creation failed: Device identification not available";
+        } else if (error.message === 'NOT_IN_ANDROID_WEBVIEW') {
+          errorMessage = "Account creation only allowed through the official app";
         } else if (error.code === 'auth/email-already-in-use') {
-          errorMessage = "This email is already registered. Please use a different email.";
+          errorMessage = "This email is already registered";
         }
         
         Swal.fire({
@@ -287,7 +193,7 @@
           icon: 'error'
         });
         
-        // If account creation failed but auth user was created, delete it
+        // Clean up if auth user was created but Firestore failed
         if (auth.currentUser) {
           try {
             await auth.currentUser.delete();
@@ -302,17 +208,6 @@
         loadingSpinner.classList.add('d-none');
       }
     });
-
-    // Additional function to get IP address (for enhanced security)
-    async function getIPAddress() {
-      try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip;
-      } catch (error) {
-        return 'unknown';
-      }
-    }
   </script>
   
 </body>
